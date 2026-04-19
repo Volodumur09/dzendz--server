@@ -1,5 +1,5 @@
 {
-  "name": "dzendzо-server",
+  "name": "dzendzo-server",
   "version": "1.0.0",
   "description": "Booking server for Dzendz'o",
   "main": "server.js",
