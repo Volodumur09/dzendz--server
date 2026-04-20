@@ -100,7 +100,7 @@ setTimeout(() => {
 
 // ── ROUTES ────────────────────────────────────────────────
 app.post('/booking', async (req, res) => {
-  const { checkin, checkout, adults, children, jacuzzi, name, phone, notes, total } = req.body;
+  const { checkin, checkout, adults, children, jacuzzi, jacuzziDays, name, phone, notes, total } = req.body;
 
   if (!checkin || !checkout || !name || !phone)
     return res.status(400).json({ ok: false, error: 'Missing required fields' });
@@ -123,12 +123,13 @@ app.post('/booking', async (req, res) => {
     return res.status(409).json({ ok: false, error: 'Dates already booked' });
 
   const num = await nextBookingNum();
-  const jacLabel = jacuzzi == 0 ? 'Без чану' : jacuzzi == 2500 ? 'Так — 2 500 грн' : 'Так + наст. день — 3 500 грн';
+  const tubDays = (jacuzziDays && jacuzziDays.length) || 0;
+  const jacLabel = tubDays === 0 ? 'Без чану' : tubDays + ' вечір' + (tubDays > 1 ? 'ів' : '') + ' × 2 500 = ' + (tubDays*2500).toLocaleString('uk-UA') + ' грн';
 
   await col().insertOne({
     num, checkin, checkout,
     adults: adults || 2, children: children || 0,
-    jacuzzi, name, phone, notes, total,
+    jacuzzi, jacuzziDays: jacuzziDays || [], name, phone, notes, total,
     status: 'pending',
     createdAt: new Date().toISOString()
   });
@@ -144,6 +145,7 @@ app.post('/booking', async (req, res) => {
       `Ночей: ${nights}\n` +
       `Гостей: ${guestsLine(adults || 2, children || 0)}\n` +
       `Чан: ${jacLabel}\n` +
+      (jacuzziDays && jacuzziDays.length ? `Вечори чану: ${jacuzziDays.map(d => { const [y,m,day]=d.split('-'); return day+'.'+m; }).join(', ')}\n` : '') +
       `Примітки: ${notes || '—'}\n` +
       `Сума: ₴ ${Number(total).toLocaleString('uk-UA')}`,
     parse_mode: 'Markdown',
