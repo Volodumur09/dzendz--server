@@ -68,10 +68,9 @@ function fmt(d) {
   return `${day}.${m}.${y}`;
 }
 
-function guestsLine(adults, childrenFree, childrenPaid) {
+function guestsLine(adults, children) {
   let line = `${adults} дорослих`;
-  if (childrenPaid && childrenPaid > 0) line += `, ${childrenPaid} дітей (3+ р.)`;
-  if (childrenFree && childrenFree > 0) line += `, ${childrenFree} дітей (до 3 р., безкоштовно)`;
+  if (children && children > 0) line += `, ${children} дітей`;
   return line;
 }
 
@@ -101,7 +100,7 @@ setTimeout(() => {
 
 // ── ROUTES ────────────────────────────────────────────────
 app.post('/booking', async (req, res) => {
-  const { checkin, checkout, adults, childrenFree, childrenPaid, children, jacuzzi, jacuzziDays, name, phone, notes, total } = req.body;
+  const { checkin, checkout, adults, children, jacuzzi, jacuzziDays, name, phone, notes, total } = req.body;
 
   if (!checkin || !checkout || !name || !phone)
     return res.status(400).json({ ok: false, error: 'Missing required fields' });
@@ -132,7 +131,7 @@ app.post('/booking', async (req, res) => {
 
   await col().insertOne({
     num, checkin, checkout,
-    adults: adults || 2, childrenFree: childrenFree || 0, childrenPaid: childrenPaid || 0, children: children || 0,
+    adults: adults || 2, children: children || 0,
     jacuzzi, jacuzziDays: jacuzziDays || [], name, phone, notes, total,
     status: 'pending',
     createdAt: new Date().toISOString()
@@ -147,7 +146,7 @@ app.post('/booking', async (req, res) => {
       `Заїзд: ${fmt(checkin)}\n` +
       `Виїзд: ${fmt(checkout)}\n` +
       `Ночей: ${nights}\n` +
-      `Гостей: ${guestsLine(adults || 2, childrenFree || 0, childrenPaid || 0)}\n` +
+      `Гостей: ${guestsLine(adults || 2, children || 0)}\n` +
       `Чан: ${jacLabel}\n` +
       (jacuzziDays && jacuzziDays.length ? `Вечори чану: ${jacuzziDays.map(d => { const [y,m,day]=d.split('-'); return day+'.'+m; }).join(', ')}\n` : '') +
       `Примітки: ${notes || '—'}\n` +
@@ -242,7 +241,7 @@ app.post('/tg-webhook', async (req, res) => {
       `✅ *Заявку №${num} ПІДТВЕРДЖЕНО*\n\n` +
       `Імʼя: ${booking.name}\nТелефон: ${booking.phone}\n` +
       `Заїзд: ${fmt(booking.checkin)} → Виїзд: ${fmt(booking.checkout)}\n` +
-      `Гостей: ${guestsLine(booking.adults||2, booking.childrenFree||0, booking.childrenPaid||0)}\n` +
+      `Гостей: ${guestsLine(booking.adults||2, booking.children||0)}\n` +
       `Сума: ₴ ${Number(booking.total).toLocaleString('uk-UA')}`
     );
     await tgSend({
@@ -250,7 +249,7 @@ app.post('/tg-webhook', async (req, res) => {
       text:
         `*Бронювання №${num} активне*\n\n` +
         `${booking.name} · ${fmt(booking.checkin)} — ${fmt(booking.checkout)}\n` +
-        `${guestsLine(booking.adults||2, booking.childrenFree||0, booking.childrenPaid||0)}\n\n` +
+        `${guestsLine(booking.adults||2, booking.children||0)}\n\n` +
         `Для скасування натисни кнопку або надішли: /cancel ${num}`,
       parse_mode: 'Markdown',
       reply_markup: { inline_keyboard: [[{ text: '🚫 Скасувати бронювання', callback_data: `cancel:${num}` }]] }
