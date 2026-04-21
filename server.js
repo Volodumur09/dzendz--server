@@ -124,7 +124,10 @@ app.post('/booking', async (req, res) => {
 
   const num = await nextBookingNum();
   const tubDays = (jacuzziDays && jacuzziDays.length) || 0;
-  const jacLabel = tubDays === 0 ? 'Без чану' : tubDays + ' вечір' + (tubDays > 1 ? 'ів' : '') + ' × 2 500 = ' + (tubDays*2500).toLocaleString('uk-UA') + ' грн';
+  const tubCost = tubDays === 0 ? 0 : 2500 + (tubDays - 1) * 1000;
+  const jacLabel = tubDays === 0 ? 'Без чану'
+    : tubDays === 1 ? '1 вечір — 2 500 грн'
+    : tubDays + ' вечорів — 2 500 + ' + (tubDays-1) + ' × 1 000 = ' + tubCost.toLocaleString('uk-UA') + ' грн';
 
   await col().insertOne({
     num, checkin, checkout,
