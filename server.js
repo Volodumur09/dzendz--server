@@ -9,7 +9,7 @@ app.use(cors());
 
 // ── CONFIG ────────────────────────────────────────────────
 const TG_TOKEN  = process.env.TG_TOKEN  || '8725137325:AAF_86TXecpPKpasuvUI_G2qw6QHOWF3KS8';
-const TG_CHAT   = process.env.TG_CHAT   || '8725137325';
+const TG_CHAT   = process.env.TG_CHAT   || '693047595';
 const PORT      = process.env.PORT      || 3000;
 const WEBHOOK   = process.env.WEBHOOK_URL;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://volodymyrpitykh_db_user:MvhcX7uLKXAf4hHl@cluster0.hfz0uta.mongodb.net/?appName=Cluster0';
@@ -74,6 +74,13 @@ function guestsLine(adults, children) {
   return line;
 }
 
+// ── ALLOWED USERS ─────────────────────────────────────────
+const ALLOWED_USERS = [693047595];
+
+function isAllowed(userId) {
+  return ALLOWED_USERS.includes(userId);
+}
+
 // ── REGISTER WEBHOOK ──────────────────────────────────────
 if (WEBHOOK) {
   fetch(`https://api.telegram.org/bot${TG_TOKEN}/setWebhook`, {
@@ -127,7 +134,7 @@ app.post('/booking', async (req, res) => {
   const tubCost = tubDays === 0 ? 0 : 2500 + (tubDays - 1) * 1000;
   const jacLabel = tubDays === 0 ? 'Без чану'
     : tubDays === 1 ? '1 вечір — 2 500 грн'
-    : tubDays + ' вечорів — 2 500 + ' + (tubDays-1) + ' × 1 000 = ' + tubCost.toLocaleString('uk-UA') + ' грн';
+    : tubDays + ' вечорів — 2 500 + ' + (tubDays - 1) + ' × 1 000 = ' + tubCost.toLocaleString('uk-UA') + ' грн';
 
   await col().insertOne({
     num, checkin, checkout,
@@ -137,10 +144,10 @@ app.post('/booking', async (req, res) => {
     createdAt: new Date().toISOString()
   });
 
-  await tgSend({
+  const tgRes = await tgSend({
     chat_id: TG_CHAT,
     text:
-      `*🏔️ Нова заявка №${num} — Dzendz'o*\n\n` +
+      `*Нова заявка №${num} — Dzendz'o*\n\n` +
       `Імʼя: ${name}\n` +
       `Телефон: ${phone}\n` +
       `Заїзд: ${fmt(checkin)}\n` +
@@ -154,12 +161,13 @@ app.post('/booking', async (req, res) => {
     parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: [[
-        { text: '✅ Підтвердити',  callback_data: `confirm:${num}` },
-        { text: '❌ Відхилити',    callback_data: `reject:${num}`  }
+        { text: 'Підтвердити',  callback_data: `confirm:${num}` },
+        { text: 'Відхилити',    callback_data: `reject:${num}`  }
       ]]
     }
   });
 
+  console.log('TG send result:', JSON.stringify(tgRes));
   res.json({ ok: true, num });
 });
 
@@ -178,12 +186,17 @@ app.post('/tg-webhook', async (req, res) => {
   if (msg && msg.text) {
     const text = msg.text.trim();
 
+    if (!isAllowed(msg.from?.id)) {
+      await tgSend({ chat_id: msg.chat.id, text: 'У вас немає доступу до цього боту.' });
+      return;
+    }
+
     if (text === '/list' || text.startsWith('/list ')) {
       const list = await col().find({ status: 'confirmed' }, { sort: { num: 1 } }).toArray();
       if (list.length === 0) {
         await tgSend({ chat_id: msg.chat.id, text: 'Немає активних бронювань.' });
       } else {
-        let reply = '*📋 Активні бронювання:*\n\n';
+        let reply = '*Активні бронювання:*\n\n';
         list.forEach(b => {
           reply += `№${b.num} · ${b.name} · ${fmt(b.checkin)} — ${fmt(b.checkout)} · ${guestsLine(b.adults||2, b.children||0)}\n`;
         });
@@ -197,17 +210,17 @@ app.post('/tg-webhook', async (req, res) => {
       const num = parseInt(cancelMatch[1]);
       const booking = await col().findOne({ num });
       if (!booking) {
-        await tgSend({ chat_id: msg.chat.id, text: `❗ Бронювання №${num} не знайдено.` });
+        await tgSend({ chat_id: msg.chat.id, text: `Бронювання №${num} не знайдено.` });
         return;
       }
       if (booking.status !== 'confirmed') {
-        await tgSend({ chat_id: msg.chat.id, text: `ℹ️ Бронювання №${num} має статус: *${booking.status}*. Скасувати можна лише підтверджені.`, parse_mode: 'Markdown' });
+        await tgSend({ chat_id: msg.chat.id, text: `Бронювання №${num} має статус: *${booking.status}*. Скасувати можна лише підтверджені.`, parse_mode: 'Markdown' });
         return;
       }
       await col().updateOne({ num }, { $set: { status: 'cancelled' } });
       await tgSend({
         chat_id: msg.chat.id,
-        text: `🚫 *Бронювання №${num} СКАСОВАНО*\n\n${booking.name} · ${fmt(booking.checkin)} — ${fmt(booking.checkout)}\nДати звільнено на календарі.`,
+        text: `*Бронювання №${num} СКАСОВАНО*\n\n${booking.name} · ${fmt(booking.checkin)} — ${fmt(booking.checkout)}\nДати звільнено на календарі.`,
         parse_mode: 'Markdown'
       });
       return;
@@ -217,7 +230,7 @@ app.post('/tg-webhook', async (req, res) => {
       await tgSend({
         chat_id: msg.chat.id,
         text:
-          "*🏔️ Dzendz'o — Команди бота*\n\n" +
+          "*Dzendz'o — Команди бота*\n\n" +
           '/list — показати всі активні бронювання\n' +
           '/cancel 5 — скасувати бронювання №5\n' +
           '/help — ця довідка',
@@ -230,6 +243,15 @@ app.post('/tg-webhook', async (req, res) => {
   const cb = req.body.callback_query;
   if (!cb) return;
 
+  if (!isAllowed(cb.from?.id)) {
+    fetch(`https://api.telegram.org/bot${TG_TOKEN}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: cb.id, text: 'У вас немає доступу', show_alert: true })
+    });
+    return;
+  }
+
   const [action, numStr] = cb.data.split(':');
   const num = parseInt(numStr);
   const booking = await col().findOne({ num });
@@ -238,7 +260,7 @@ app.post('/tg-webhook', async (req, res) => {
   if (action === 'confirm') {
     await col().updateOne({ num }, { $set: { status: 'confirmed' } });
     await tgEdit(cb.message.chat.id, cb.message.message_id,
-      `✅ *Заявку №${num} ПІДТВЕРДЖЕНО*\n\n` +
+      `*Заявку №${num} ПІДТВЕРДЖЕНО*\n\n` +
       `Імʼя: ${booking.name}\nТелефон: ${booking.phone}\n` +
       `Заїзд: ${fmt(booking.checkin)} → Виїзд: ${fmt(booking.checkout)}\n` +
       `Гостей: ${guestsLine(booking.adults||2, booking.children||0)}\n` +
@@ -250,22 +272,22 @@ app.post('/tg-webhook', async (req, res) => {
         `*Бронювання №${num} активне*\n\n` +
         `${booking.name} · ${fmt(booking.checkin)} — ${fmt(booking.checkout)}\n` +
         `${guestsLine(booking.adults||2, booking.children||0)}\n\n` +
-        `Для скасування натисни кнопку або надішли: /cancel ${num}`,
+        `Для скасування надішли: /cancel ${num}`,
       parse_mode: 'Markdown',
-      reply_markup: { inline_keyboard: [[{ text: '🚫 Скасувати бронювання', callback_data: `cancel:${num}` }]] }
+      reply_markup: { inline_keyboard: [[{ text: 'Скасувати бронювання', callback_data: `cancel:${num}` }]] }
     });
 
   } else if (action === 'reject') {
     await col().updateOne({ num }, { $set: { status: 'rejected' } });
     await tgEdit(cb.message.chat.id, cb.message.message_id,
-      `❌ *Заявку №${num} ВІДХИЛЕНО*\n\n${booking.name} · ${fmt(booking.checkin)} — ${fmt(booking.checkout)}`
+      `*Заявку №${num} ВІДХИЛЕНО*\n\n${booking.name} · ${fmt(booking.checkin)} — ${fmt(booking.checkout)}`
     );
 
   } else if (action === 'cancel') {
     if (booking.status !== 'confirmed') return;
     await col().updateOne({ num }, { $set: { status: 'cancelled' } });
     await tgEdit(cb.message.chat.id, cb.message.message_id,
-      `🚫 *Бронювання №${num} СКАСОВАНО*\n\n` +
+      `*Бронювання №${num} СКАСОВАНО*\n\n` +
       `Імʼя: ${booking.name}\n` +
       `Заїзд: ${fmt(booking.checkin)} → Виїзд: ${fmt(booking.checkout)}\n` +
       `Дати звільнено на календарі.`
