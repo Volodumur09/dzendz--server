@@ -74,7 +74,14 @@ function guestsLine(adults, children) {
   return line;
 }
 
-// ── REGISTER WEBHOOK ──────────────────────────────────────
+// ── ALLOWED TELEGRAM USERS ───────────────────────────────
+const ALLOWED_USERS = [693047595, 774723351];
+
+function isAllowed(userId) {
+  return ALLOWED_USERS.includes(userId);
+}
+
+
 if (WEBHOOK) {
   fetch(`https://api.telegram.org/bot${TG_TOKEN}/setWebhook`, {
     method: 'POST',
@@ -178,6 +185,11 @@ app.post('/tg-webhook', async (req, res) => {
   if (msg && msg.text) {
     const text = msg.text.trim();
 
+    if (!isAllowed(msg.from?.id)) {
+      await tgSend({ chat_id: msg.chat.id, text: '⛔ У вас немає доступу до цього боту.' });
+      return;
+    }
+
     if (text === '/list' || text.startsWith('/list ')) {
       const list = await col().find({ status: 'confirmed' }, { sort: { num: 1 } }).toArray();
       if (list.length === 0) {
@@ -229,6 +241,15 @@ app.post('/tg-webhook', async (req, res) => {
 
   const cb = req.body.callback_query;
   if (!cb) return;
+
+  if (!isAllowed(cb.from?.id)) {
+    fetch(`https://api.telegram.org/bot${TG_TOKEN}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: cb.id, text: '⛔ У вас немає доступу', show_alert: true })
+    });
+    return;
+  }
 
   const [action, numStr] = cb.data.split(':');
   const num = parseInt(numStr);
