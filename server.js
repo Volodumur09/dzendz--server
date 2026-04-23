@@ -9,7 +9,7 @@ app.use(cors());
 
 // ── CONFIG ────────────────────────────────────────────────
 const TG_TOKEN  = process.env.TG_TOKEN  || '8725137325:AAF_86TXecpPKpasuvUI_G2qw6QHOWF3KS8';
-const TG_CHAT   = process.env.TG_CHAT   || '693047595';
+const TG_CHAT   = process.env.TG_CHAT   || '8725137325';
 const PORT      = process.env.PORT      || 3000;
 const WEBHOOK   = process.env.WEBHOOK_URL;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://volodymyrpitykh_db_user:MvhcX7uLKXAf4hHl@cluster0.hfz0uta.mongodb.net/?appName=Cluster0';
