@@ -8,7 +8,7 @@ app.use(express.json());
 app.use(cors());
 
 // ── CONFIG ────────────────────────────────────────────────
-const TG_TOKEN  = process.env.TG_TOKEN  || '8736490478:AAHHTrcGh7rNduXgEo3Z6vhUWf4YZsEx3dM';
+const TG_TOKEN  = process.env.TG_TOKEN  || '8725137325:AAF_86TXecpPKpasuvUI_G2qw6QHOWF3KS8';
 const TG_CHAT   = process.env.TG_CHAT   || '693047595';
 const PORT      = process.env.PORT      || 3000;
 const WEBHOOK   = process.env.WEBHOOK_URL;
